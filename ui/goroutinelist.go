@@ -12,8 +12,8 @@ import (
 
 type GoroutineStackView struct {
 	*tview.Flex
-	selectGoroutineIndex func(index int)
-	cancel               context.CancelFunc
+	selectGoroutine func(goroutine *gops.Goroutine)
+	cancel          context.CancelFunc
 }
 
 type GoroutineStackViewParams struct {
@@ -24,26 +24,59 @@ type GoroutineStackViewParams struct {
 
 type GoroutineListView struct {
 	*tview.Table
+	indexToGoroutine map[int]*gops.Goroutine
+	currentRow       int
 }
 
-func (g GoroutineListView) Apply(goroutines []gops.Goroutine) {
-	g.SetTitle(" Goroutines (" + strconv.Itoa(len(goroutines)) + ") ")
-	for g.GetRowCount() > len(goroutines)+1 {
+func (g *GoroutineListView) add(goroutine *gops.Goroutine, level int, isLastChild bool) {
+	prefix := ""
+	if level > 0 {
+		for i := 0; i < level-1; i++ {
+			prefix += "│ "
+		}
+		if isLastChild {
+			prefix += "└ "
+		} else {
+			prefix += "├ "
+		}
+	}
+	g.SetCell(g.currentRow, 0, tview.NewTableCell(prefix+strconv.Itoa(goroutine.Id)))
+	g.SetCell(g.currentRow, 1, tview.NewTableCell(goroutine.State))
+	g.SetCell(g.currentRow, 2, tview.NewTableCell(goroutine.Frames[0].Func))
+	g.SetCell(g.currentRow, 3, tview.NewTableCell(goroutine.Wait))
+	g.indexToGoroutine[g.currentRow] = goroutine
+	g.currentRow++
+
+	for i, child := range goroutine.Children {
+		g.add(child, level+1, i+1 == len(goroutine.Children))
+	}
+}
+
+func (g *GoroutineListView) Apply(goroutines []*gops.Goroutine) {
+	//g.SetTitle(" Goroutines (" + strconv.Itoa(len(goroutines)) + ") ")
+	//for g.GetRowCount() > len(goroutines)+1 {
+	//	g.RemoveRow(g.GetRowCount() - 1)
+	//}
+	g.indexToGoroutine = make(map[int]*gops.Goroutine)
+	g.currentRow = 1
+	for i, goroutine := range goroutines {
+		g.add(goroutine, 0, i+1 == len(goroutines))
+	}
+	for g.GetRowCount() > g.currentRow+1 {
 		g.RemoveRow(g.GetRowCount() - 1)
 	}
-	for i, goroutine := range goroutines {
-		g.SetCell(i+1, 0, tview.NewTableCell(strconv.Itoa(goroutine.Id)))
-		g.SetCell(i+1, 1, tview.NewTableCell(goroutine.State))
-		g.SetCell(i+1, 2, tview.NewTableCell(goroutine.Wait))
-	}
-	if row, _ := g.GetSelection(); row <= 0 || row >= len(goroutines)+1 {
+	if row, _ := g.GetSelection(); row <= 0 || row >= g.currentRow+1 {
 		g.Select(1, 0)
 		g.ScrollToBeginning()
 	}
 }
 
-func (v *GoroutineStackView) newGoroutineList() GoroutineListView {
+func (v *GoroutineStackView) newGoroutineList() *GoroutineListView {
 	table := tview.NewTable()
+	g := &GoroutineListView{
+		Table: table,
+	}
+
 	table.SetBorder(true)
 	table.SetTitle(" Goroutines ")
 	table.SetBorderPadding(0, 0, 1, 1)
@@ -56,13 +89,11 @@ func (v *GoroutineStackView) newGoroutineList() GoroutineListView {
 			row = 1
 			table.Select(row, column)
 		}
-		v.selectGoroutineIndex(row - 1)
+		v.selectGoroutine(g.indexToGoroutine[row])
 	})
 	table.SetSelectable(true, false)
 
-	return GoroutineListView{
-		Table: table,
-	}
+	return g
 }
 
 func newStackList(frames []gops.Frame) tview.Primitive {
@@ -128,14 +159,13 @@ func NewGoroutineStackView(params GoroutineStackViewParams) Widget {
 		goroutines := gops.ParseGoStack(result)
 
 		params.Application.QueueUpdateDraw(func() {
-			v.selectGoroutineIndex = func(index int) {
+			v.selectGoroutine = func(goroutine *gops.Goroutine) {
 				if flex.GetItemCount() > 1 {
 					flex.RemoveItem(flex.GetItem(1))
 				}
-				if index < 0 || index >= len(goroutines) {
+				if goroutine == nil {
 					return
 				}
-				goroutine := goroutines[index]
 				stackListView = newStackList(goroutine.Frames)
 				flex.AddItem(stackListView, 0, 3, false)
 			}

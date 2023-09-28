@@ -1,14 +1,12 @@
 # pscope
 
-## Introduction
 **pscope** is an interactive tool designed to examine currently running Go and Java processes. It can be considered as a more user-friendly variant of `gops` and `jps`, with a text-based user interface.
 
-## Features
-* List all running Go and Java processes
-* Show detailed information and runtime state of a process
-* Show stack trace of a goroutine or thread
-* Show heap profile of a process
-* ... and more to come!
+## Demo
+
+This project is still under development. Here is a demo of the current progress:
+
+![demo](https://lqs-public-us-west.oss-us-west-1.aliyuncs.com/pscope/demo-teaser.gif)
 
 ## Installation
 

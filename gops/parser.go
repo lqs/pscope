@@ -10,10 +10,13 @@ import (
 )
 
 type Goroutine struct {
-	Id     int
-	State  string
-	Wait   string
-	Frames []Frame
+	Id                int
+	State             string
+	Wait              string
+	Frames            []Frame
+	ParentGoroutineId int
+	ParentFrame       Frame
+	Children          []*Goroutine
 }
 
 type Frame struct {
@@ -25,8 +28,10 @@ type Frame struct {
 
 var headerRegex = regexp.MustCompile(`^goroutine (\d+) \[(.+?)(?:, (.+))?]:`)
 var frameRegex = regexp.MustCompile(`^([a-zA-Z0-9._/\-]+\.)((?:\(\*?[^()]*\)\.)?\w+(?:\[\.\.\.])?)(?:\(([^()]*)\))?$`)
+var createdByRegex = regexp.MustCompile(`^created by .+ in goroutine (\d+)$`)
 
-func ParseGoStack(stack []byte) (goroutines []Goroutine) {
+func ParseGoStack(stack []byte) []*Goroutine {
+	var goroutines []*Goroutine
 	reader := bufio.NewReader(bytes.NewReader(stack))
 	for {
 		line, err := reader.ReadString('\n')
@@ -40,7 +45,7 @@ func ParseGoStack(stack []byte) (goroutines []Goroutine) {
 		}
 
 		goroutineId, _ := strconv.Atoi(matches[1])
-		goroutine := Goroutine{
+		goroutine := &Goroutine{
 			Id:    goroutineId,
 			State: matches[2],
 			Wait:  matches[3],
@@ -52,13 +57,19 @@ func ParseGoStack(stack []byte) (goroutines []Goroutine) {
 			if line == "" {
 				break
 			}
-			matches := frameRegex.FindStringSubmatch(line)
-			if matches == nil {
-				frame.Func = line
+
+			matches := createdByRegex.FindStringSubmatch(line)
+			if matches != nil {
+				goroutine.ParentGoroutineId, _ = strconv.Atoi(matches[1])
 			} else {
-				frame.Package = matches[1]
-				frame.Func = matches[2]
-				frame.Params = matches[3]
+				matches := frameRegex.FindStringSubmatch(line)
+				if matches != nil {
+					frame.Package = matches[1]
+					frame.Func = matches[2]
+					frame.Params = matches[3]
+				} else {
+					frame.Func = line
+				}
 			}
 
 			line, _ = reader.ReadString('\n')
@@ -71,8 +82,49 @@ func ParseGoStack(stack []byte) (goroutines []Goroutine) {
 		goroutines = append(goroutines, goroutine)
 	}
 
-	slices.SortFunc(goroutines, func(a, b Goroutine) int {
+	roots := makeTree(goroutines)
+	sortGoroutines(roots)
+	return roots
+}
+
+func makeTree(goroutines []*Goroutine) []*Goroutine {
+	goroutineMap := make(map[int]*Goroutine)
+	for i := range goroutines {
+		goroutineMap[goroutines[i].Id] = goroutines[i]
+	}
+
+	for _, goroutine := range goroutines {
+		if goroutine.ParentGoroutineId != 0 {
+			parent, ok := goroutineMap[goroutine.ParentGoroutineId]
+			if !ok {
+				// make a dummy parent goroutine
+				parent = &Goroutine{
+					Id:                goroutine.ParentGoroutineId,
+					State:             "terminated",
+					ParentGoroutineId: 1,
+				}
+				goroutineMap[goroutine.ParentGoroutineId] = parent
+				goroutines = append(goroutines, parent)
+			}
+			parent.Children = append(parent.Children, goroutine)
+		}
+	}
+
+	var roots []*Goroutine
+	for i := range goroutines {
+		goroutine := goroutines[i]
+		if goroutine.ParentGoroutineId == 0 {
+			roots = append(roots, goroutine)
+		}
+	}
+	return roots
+}
+
+func sortGoroutines(goroutines []*Goroutine) {
+	slices.SortFunc(goroutines, func(a, b *Goroutine) int {
 		return b.Id - a.Id
 	})
-	return
+	for _, goroutine := range goroutines {
+		sortGoroutines(goroutine.Children)
+	}
 }
