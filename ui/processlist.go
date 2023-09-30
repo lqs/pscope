@@ -96,6 +96,10 @@ func NewProcessListView(params ProcessListViewParams) ProcessListView {
 	ctx, cancel := context.WithCancel(context.Background())
 	NewReloader(ctx, func() {
 		processes := findProcesses()
+		rowCount := table.GetRowCount()
+		for i := 1; i < rowCount; i++ {
+			table.RemoveRow(i)
+		}
 		for c := 0; c < len(columns); c++ {
 			for i, process := range processes {
 				cols := []string{
