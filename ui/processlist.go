@@ -9,6 +9,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/google/gops/goprocess"
+	"github.com/lqs/pscope/common"
+	"github.com/lqs/pscope/jvmhsperf"
 	"github.com/rivo/tview"
 	"github.com/shirou/gopsutil/v3/process"
 )
@@ -24,16 +26,8 @@ type ProcessListViewParams struct {
 	OnClose     func()
 }
 
-type Process struct {
-	PID          int
-	BuildVersion string
-	Path         string
-	Agent        bool
-	StartTime    time.Time
-}
-
-func findProcesses() []Process {
-	var processes []Process
+func findProcesses() []common.Process {
+	var processes []common.Process
 	for _, p := range goprocess.FindAll() {
 		if p.PID == os.Getpid() {
 			continue
@@ -43,7 +37,7 @@ func findProcesses() []Process {
 			continue
 		}
 		createTime, _ := proc.CreateTime()
-		processes = append(processes, Process{
+		processes = append(processes, common.Process{
 			PID:          p.PID,
 			BuildVersion: p.BuildVersion,
 			Path:         p.Path,
@@ -51,7 +45,8 @@ func findProcesses() []Process {
 			StartTime:    time.UnixMilli(createTime),
 		})
 	}
-	slices.SortFunc(processes, func(a, b Process) int {
+	processes = append(processes, jvmhsperf.ListProcesses()...)
+	slices.SortFunc(processes, func(a, b common.Process) int {
 		if a.Agent != b.Agent {
 			if a.Agent {
 				return -1

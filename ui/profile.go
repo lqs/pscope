@@ -81,6 +81,9 @@ func (v ProfileView) start(ctx context.Context) {
 		result, err := gops.Cmd(ctx, v.params.PID, p)
 		if err != nil {
 			// TODO: show error
+			v.params.Application.QueueUpdateDraw(func() {
+				v.params.OnClose()
+			})
 			return
 		}
 
