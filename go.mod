@@ -7,7 +7,7 @@ require (
 	github.com/google/gops v0.3.28
 	github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98
 	github.com/rivo/tview v0.0.0-20230928053139-9bc1d28d88a9
-	github.com/shirou/gopsutil/v3 v3.23.8
+	github.com/shirou/gopsutil/v3 v3.23.9
 	golang.org/x/text v0.13.0
 )
 

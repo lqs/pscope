@@ -51,20 +51,20 @@ func buildRequest(cmd string, args ...string) []byte {
 	return request.Bytes()
 }
 
-func Execute(pid int, cmd string, args ...string) (string, error) {
+func Execute(pid int, cmd string, args ...string) ([]byte, error) {
 	conn, err := connect(pid)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	request := buildRequest(cmd, args...)
 	if _, err := conn.Write(request); err != nil {
-		return "", fmt.Errorf("error writing to socket: %v", err)
+		return nil, fmt.Errorf("error writing to socket: %v", err)
 	}
 
 	response, err := io.ReadAll(conn)
 	if err != nil {
-		return "", fmt.Errorf("error reading from socket: %v", err)
+		return nil, fmt.Errorf("error reading from socket: %v", err)
 	}
 
-	return string(response), nil
+	return response, nil
 }

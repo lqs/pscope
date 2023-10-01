@@ -10,6 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/google/gops/signal"
 	"github.com/google/pprof/profile"
+	"github.com/lqs/pscope/common"
 	"github.com/lqs/pscope/gops"
 	"github.com/rivo/tview"
 	"golang.org/x/text/cases"
@@ -25,7 +26,7 @@ type ProfileView struct {
 
 type ProfileViewParams struct {
 	Application *tview.Application
-	PID         int
+	Process     common.Process
 	Type        string
 	OnClose     func()
 }
@@ -78,7 +79,7 @@ func (v ProfileView) start(ctx context.Context) {
 
 	go func() {
 		defer close(done)
-		result, err := gops.Cmd(ctx, v.params.PID, p)
+		result, err := gops.Cmd(ctx, v.params.Process.PID, p)
 		if err != nil {
 			// TODO: show error
 			v.params.Application.QueueUpdateDraw(func() {

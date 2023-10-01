@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/lqs/pscope/common"
 	"github.com/rivo/tview"
 	"github.com/shirou/gopsutil/v3/process"
 )
@@ -14,7 +15,7 @@ type ProcessDetailView struct {
 }
 
 type ProcessDetailViewParams struct {
-	PID           int
+	Process       common.Process
 	OnClose       func()
 	OnShowStack   func()
 	OnCPUProfile  func()
@@ -24,7 +25,7 @@ type ProcessDetailViewParams struct {
 func NewProcessDetailView(params ProcessDetailViewParams) ProcessDetailView {
 	form := tview.NewForm()
 
-	p, err := process.NewProcess(int32(params.PID))
+	p, err := process.NewProcess(int32(params.Process.PID))
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +38,7 @@ func NewProcessDetailView(params ProcessDetailViewParams) ProcessDetailView {
 	form.SetTitle(" " + name + " ")
 	form.SetBorderPadding(0, 0, 1, 1)
 
-	form.AddTextView("PID", strconv.Itoa(params.PID), 0, 1, true, false)
+	form.AddTextView("PID", strconv.Itoa(params.Process.PID), 0, 1, true, false)
 	form.AddTextView("Name", name, 0, 1, true, false)
 	form.AddTextView("CPU Percent", fmt.Sprintf("%.1f%%", cpuPercent*100), 0, 1, true, false)
 

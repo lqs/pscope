@@ -6,7 +6,9 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/google/gops/signal"
+	"github.com/lqs/pscope/common"
 	"github.com/lqs/pscope/gops"
+	"github.com/lqs/pscope/jvmhsperf"
 	"github.com/rivo/tview"
 )
 
@@ -18,12 +20,13 @@ type GoroutineStackView struct {
 
 type GoroutineStackViewParams struct {
 	Application *tview.Application
-	PID         int
+	Process     common.Process
 	OnClose     func()
 }
 
 type GoroutineListView struct {
 	*tview.Table
+	process          common.Process
 	indexToGoroutine map[int]*gops.Goroutine
 	currentRow       int
 }
@@ -40,10 +43,18 @@ func (g *GoroutineListView) add(goroutine *gops.Goroutine, level int, isLastChil
 			prefix += "├ "
 		}
 	}
-	g.SetCell(g.currentRow, 0, tview.NewTableCell(prefix+strconv.Itoa(goroutine.Id)))
-	g.SetCell(g.currentRow, 1, tview.NewTableCell(goroutine.State))
-	g.SetCell(g.currentRow, 2, tview.NewTableCell(goroutine.Frames[0].Func))
-	g.SetCell(g.currentRow, 3, tview.NewTableCell(goroutine.Wait))
+
+	switch g.process.Type {
+	case common.ProcessTypeGo:
+		g.SetCell(g.currentRow, 0, tview.NewTableCell(prefix+strconv.Itoa(goroutine.Id)))
+		g.SetCell(g.currentRow, 1, tview.NewTableCell(goroutine.State))
+		g.SetCell(g.currentRow, 2, tview.NewTableCell(goroutine.Frames[0].Func))
+		g.SetCell(g.currentRow, 3, tview.NewTableCell(goroutine.Wait))
+	case common.ProcessTypeJava:
+		g.SetCell(g.currentRow, 0, tview.NewTableCell(prefix+goroutine.Name))
+		g.SetCell(g.currentRow, 1, tview.NewTableCell(goroutine.State))
+	}
+
 	g.indexToGoroutine[g.currentRow] = goroutine
 	g.currentRow++
 
@@ -71,19 +82,27 @@ func (g *GoroutineListView) Apply(goroutines []*gops.Goroutine) {
 	}
 }
 
-func (v *GoroutineStackView) newGoroutineList() *GoroutineListView {
+func (v *GoroutineStackView) newGoroutineList(process common.Process) *GoroutineListView {
 	table := tview.NewTable()
 	g := &GoroutineListView{
-		Table: table,
+		Table:   table,
+		process: process,
 	}
 
 	table.SetBorder(true)
 	table.SetTitle(" Goroutines ")
 	table.SetBorderPadding(0, 0, 1, 1)
 	table.SetFixed(1, 3)
-	table.SetCell(0, 0, tview.NewTableCell("ID"))
-	table.SetCell(0, 1, tview.NewTableCell("State"))
-	table.SetCell(0, 2, tview.NewTableCell("Wait"))
+	switch process.Type {
+	case common.ProcessTypeGo:
+		table.SetCell(0, 0, tview.NewTableCell("ID"))
+		table.SetCell(0, 1, tview.NewTableCell("State"))
+		table.SetCell(0, 2, tview.NewTableCell("Function"))
+		table.SetCell(0, 3, tview.NewTableCell("Wait"))
+	case common.ProcessTypeJava:
+		table.SetCell(0, 0, tview.NewTableCell("Name"))
+		table.SetCell(0, 1, tview.NewTableCell("State"))
+	}
 	table.SetSelectionChangedFunc(func(row, column int) {
 		if row <= 0 {
 			row = 1
@@ -133,7 +152,7 @@ func NewGoroutineStackView(params GoroutineStackViewParams) Widget {
 		cancel: cancel,
 	}
 
-	goroutineListView := v.newGoroutineList()
+	goroutineListView := v.newGoroutineList(params.Process)
 	var stackListView tview.Primitive
 	flex.AddItem(goroutineListView, 0, 1, true)
 	flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -155,8 +174,22 @@ func NewGoroutineStackView(params GoroutineStackViewParams) Widget {
 	})
 
 	NewReloader(ctx, func() {
-		result, _ := gops.Cmd(ctx, params.PID, signal.StackTrace)
-		goroutines := gops.ParseGoStack(result)
+		var goroutines []*gops.Goroutine
+		switch params.Process.Type {
+		case common.ProcessTypeGo:
+			result, _ := gops.Cmd(ctx, params.Process.PID, signal.StackTrace)
+			goroutines = gops.ParseGoStack(result)
+		case common.ProcessTypeJava:
+			result, _ := jvmhsperf.Execute(params.Process.PID, "threaddump")
+			for _, thread := range jvmhsperf.ParseJavaThreadDump(result) {
+				goroutines = append(goroutines, &gops.Goroutine{
+					Id:     thread.Id,
+					Name:   thread.Name,
+					State:  thread.State,
+					Frames: thread.Frames,
+				})
+			}
+		}
 
 		params.Application.QueueUpdateDraw(func() {
 			v.selectGoroutine = func(goroutine *gops.Goroutine) {

@@ -11,6 +11,7 @@ import (
 
 type Goroutine struct {
 	Id                int
+	Name              string
 	State             string
 	Wait              string
 	Frames            []Frame

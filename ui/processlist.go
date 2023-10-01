@@ -22,7 +22,7 @@ type ProcessListView struct {
 
 type ProcessListViewParams struct {
 	Application *tview.Application
-	OnSelect    func(pid int)
+	OnSelect    func(process common.Process)
 	OnClose     func()
 }
 
@@ -38,6 +38,7 @@ func findProcesses() []common.Process {
 		}
 		createTime, _ := proc.CreateTime()
 		processes = append(processes, common.Process{
+			Type:         common.ProcessTypeGo,
 			PID:          p.PID,
 			BuildVersion: p.BuildVersion,
 			Path:         p.Path,
@@ -136,8 +137,7 @@ func NewProcessListView(params ProcessListViewParams) ProcessListView {
 		params.Application.QueueUpdateDraw(func() {
 			table.ScrollToBeginning()
 			table.SetSelectedFunc(func(row int, column int) {
-				pid := processes[row-1].PID
-				params.OnSelect(pid)
+				params.OnSelect(processes[row-1])
 			})
 		})
 	})

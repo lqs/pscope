@@ -51,6 +51,7 @@ func ListProcesses() []common.Process {
 		}
 		createTime, _ := proc.CreateTime()
 		processes = append(processes, common.Process{
+			Type:         common.ProcessTypeJava,
 			PID:          pid,
 			BuildVersion: "java",
 			Path:         cmdline,

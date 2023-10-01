@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"github.com/lqs/pscope/common"
 	"github.com/lqs/pscope/ui"
 	"github.com/rivo/tview"
 )
@@ -40,20 +41,20 @@ func main() {
 
 	processListView := ui.NewProcessListView(ui.ProcessListViewParams{
 		Application: application,
-		OnSelect: func(pid int) {
+		OnSelect: func(process common.Process) {
 			t.Push(ui.NewProcessDetailView(ui.ProcessDetailViewParams{
-				PID: pid,
+				Process: process,
 				OnShowStack: func() {
 					t.Push(ui.NewGoroutineStackView(ui.GoroutineStackViewParams{
 						Application: application,
-						PID:         pid,
+						Process:     process,
 						OnClose:     t.Pop,
 					}))
 				},
 				OnCPUProfile: func() {
 					t.Push(ui.NewProfileView(ui.ProfileViewParams{
 						Application: application,
-						PID:         pid,
+						Process:     process,
 						Type:        "cpu",
 						OnClose:     t.Pop,
 					}))
@@ -61,7 +62,7 @@ func main() {
 				OnHeapProfile: func() {
 					t.Push(ui.NewProfileView(ui.ProfileViewParams{
 						Application: application,
-						PID:         pid,
+						Process:     process,
 						Type:        "heap",
 						OnClose:     t.Pop,
 					}))
