@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lqs/pscope/gops"
+	"github.com/lqs/pscope/common"
 )
 
 // "http-nio-8080-exec-1" #20 daemon prio=5 os_prio=0 cpu=126.11ms elapsed=144.34s tid=0x00007f9048f3c290 nid=0xc038 waiting on condition  [0x00007f8faf7f9000]
@@ -19,16 +19,8 @@ var threadStateRegex = regexp.MustCompile(`^java\.lang\.Thread\.State: (.+)$`)
 // at some.package.Class$SubClass.method(RequestMappingHandlerAdapter.java:878)
 var frameRegex = regexp.MustCompile(`^at (?:([a-zA-Z0-9.]*?)\.)?([a-zA-Z0-9$]+)\.([a-zA-Z0-9]+)\((.+):(\d+)\)$`)
 
-type Thread struct {
-	Id      int
-	Name    string
-	State   string
-	Elapsed string
-	Frames  []gops.Frame
-}
-
-func ParseJavaThreadDump(threadDump []byte) []*Thread {
-	var threads []*Thread
+func ParseJavaThreadDump(threadDump []byte) []*common.CallStack {
+	var threads []*common.CallStack
 	reader := bufio.NewReader(bytes.NewReader(threadDump))
 	for {
 		line, err := reader.ReadString('\n')
@@ -39,7 +31,7 @@ func ParseJavaThreadDump(threadDump []byte) []*Thread {
 
 		if matches := headerRegex.FindStringSubmatch(line); matches != nil {
 			threadId, _ := strconv.Atoi(matches[2])
-			thread := &Thread{
+			thread := &common.CallStack{
 				Id:    threadId,
 				Name:  matches[1],
 				State: matches[5],
@@ -49,13 +41,16 @@ func ParseJavaThreadDump(threadDump []byte) []*Thread {
 			thread := threads[len(threads)-1]
 			thread.State = matches[1]
 		} else if matches := frameRegex.FindStringSubmatch(line); matches != nil {
-			frame := gops.Frame{
+			frame := &common.Frame{
 				Package: matches[1],
 				Func:    matches[2] + "." + matches[3],
 				File:    matches[4],
 			}
 			thread := threads[len(threads)-1]
 			thread.Frames = append(thread.Frames, frame)
+		} else if strings.Contains(line, "- Coroutine dump -") {
+			// TODO: add coroutine support
+			break
 		}
 	}
 	return threads

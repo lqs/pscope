@@ -40,11 +40,17 @@ func NewProcessDetailView(params ProcessDetailViewParams) ProcessDetailView {
 
 	form.AddTextView("PID", strconv.Itoa(params.Process.PID), 0, 1, true, false)
 	form.AddTextView("Name", name, 0, 1, true, false)
-	form.AddTextView("CPU Percent", fmt.Sprintf("%.1f%%", cpuPercent*100), 0, 1, true, false)
+	form.AddTextView("%CPU (average)", fmt.Sprintf("%.1f%%", cpuPercent*100), 0, 1, true, false)
 
-	form.AddButton("Stack", params.OnShowStack)
-	form.AddButton("CPU Profile", params.OnCPUProfile)
-	form.AddButton("Heap Profile", params.OnHeapProfile)
+	if params.Process.Agent {
+		form.AddButton("Stack Dump", params.OnShowStack)
+		if params.Process.Type == common.ProcessTypeGo {
+			form.AddButton("CPU Profile", params.OnCPUProfile)
+			form.AddButton("Heap Profile", params.OnHeapProfile)
+		}
+	} else {
+		form.AddButton("gops agent not started. Press Esc to go back", nil)
+	}
 	form.SetButtonStyle(buttonStyle)
 	form.SetButtonActivatedStyle(buttonActivatedStyle)
 	form.SetCancelFunc(func() {

@@ -40,10 +40,10 @@ func (v ProfileView) start(ctx context.Context) {
 	progressDialog := tview.NewModal()
 	progressDialog.SetBackgroundColor(tcell.ColorSilver)
 	progressDialog.SetTextColor(tcell.ColorBlack)
-	//progressDialog.AddButtons([]string{"Cancel"})
-	//progressDialog.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-	//	params.OnClose()
-	//})
+	progressDialog.AddButtons([]string{"Don't shutdown your computer"})
+	progressDialog.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		//params.OnClose()
+	})
 	v.Pages.AddPage("progressDialog", progressDialog, true, true)
 
 	done := make(chan struct{})

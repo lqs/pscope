@@ -14,7 +14,7 @@ import (
 
 type GoroutineStackView struct {
 	*tview.Flex
-	selectGoroutine func(goroutine *gops.Goroutine)
+	selectGoroutine func(goroutine *common.CallStack)
 	cancel          context.CancelFunc
 }
 
@@ -27,11 +27,11 @@ type GoroutineStackViewParams struct {
 type GoroutineListView struct {
 	*tview.Table
 	process          common.Process
-	indexToGoroutine map[int]*gops.Goroutine
+	indexToGoroutine []*common.CallStack
 	currentRow       int
 }
 
-func (g *GoroutineListView) add(goroutine *gops.Goroutine, level int, isLastChild bool) {
+func (g *GoroutineListView) add(goroutine *common.CallStack, level int, isLastChild bool) {
 	prefix := ""
 	if level > 0 {
 		for i := 0; i < level-1; i++ {
@@ -55,7 +55,7 @@ func (g *GoroutineListView) add(goroutine *gops.Goroutine, level int, isLastChil
 		g.SetCell(g.currentRow, 1, tview.NewTableCell(goroutine.State))
 	}
 
-	g.indexToGoroutine[g.currentRow] = goroutine
+	g.indexToGoroutine = append(g.indexToGoroutine, goroutine)
 	g.currentRow++
 
 	for i, child := range goroutine.Children {
@@ -63,15 +63,16 @@ func (g *GoroutineListView) add(goroutine *gops.Goroutine, level int, isLastChil
 	}
 }
 
-func (g *GoroutineListView) Apply(goroutines []*gops.Goroutine) {
-	//g.SetTitle(" Goroutines (" + strconv.Itoa(len(goroutines)) + ") ")
-	//for g.GetRowCount() > len(goroutines)+1 {
-	//	g.RemoveRow(g.GetRowCount() - 1)
-	//}
-	g.indexToGoroutine = make(map[int]*gops.Goroutine)
+func (g *GoroutineListView) Apply(callStacks []*common.CallStack) {
+	g.indexToGoroutine = nil
 	g.currentRow = 1
-	for i, goroutine := range goroutines {
-		g.add(goroutine, 0, i+1 == len(goroutines))
+	for i, goroutine := range callStacks {
+		g.add(goroutine, 0, i+1 == len(callStacks))
+	}
+	if g.process.Type == common.ProcessTypeGo {
+		g.SetTitle(" Goroutines (" + strconv.Itoa(len(g.indexToGoroutine)) + ") ")
+	} else {
+		g.SetTitle(" Threads (" + strconv.Itoa(len(g.indexToGoroutine)-1) + ") ")
 	}
 	for g.GetRowCount() > g.currentRow+1 {
 		g.RemoveRow(g.GetRowCount() - 1)
@@ -90,7 +91,6 @@ func (v *GoroutineStackView) newGoroutineList(process common.Process) *Goroutine
 	}
 
 	table.SetBorder(true)
-	table.SetTitle(" Goroutines ")
 	table.SetBorderPadding(0, 0, 1, 1)
 	table.SetFixed(1, 3)
 	switch process.Type {
@@ -108,14 +108,16 @@ func (v *GoroutineStackView) newGoroutineList(process common.Process) *Goroutine
 			row = 1
 			table.Select(row, column)
 		}
-		v.selectGoroutine(g.indexToGoroutine[row])
+		if row < len(g.indexToGoroutine) {
+			v.selectGoroutine(g.indexToGoroutine[row-1])
+		}
 	})
 	table.SetSelectable(true, false)
 
 	return g
 }
 
-func newStackList(frames []gops.Frame) tview.Primitive {
+func newStackList(frames []*common.Frame) tview.Primitive {
 	table := tview.NewTable()
 	table.SetBorder(true).SetTitle(" Stack Frames ")
 	table.SetBorderPadding(0, 0, 1, 1)
@@ -174,7 +176,7 @@ func NewGoroutineStackView(params GoroutineStackViewParams) Widget {
 	})
 
 	NewReloader(ctx, func() {
-		var goroutines []*gops.Goroutine
+		var goroutines []*common.CallStack
 		switch params.Process.Type {
 		case common.ProcessTypeGo:
 			result, _ := gops.Cmd(ctx, params.Process.PID, signal.StackTrace)
@@ -182,7 +184,7 @@ func NewGoroutineStackView(params GoroutineStackViewParams) Widget {
 		case common.ProcessTypeJava:
 			result, _ := jvmhsperf.Execute(params.Process.PID, "threaddump")
 			for _, thread := range jvmhsperf.ParseJavaThreadDump(result) {
-				goroutines = append(goroutines, &gops.Goroutine{
+				goroutines = append(goroutines, &common.CallStack{
 					Id:     thread.Id,
 					Name:   thread.Name,
 					State:  thread.State,
@@ -192,7 +194,7 @@ func NewGoroutineStackView(params GoroutineStackViewParams) Widget {
 		}
 
 		params.Application.QueueUpdateDraw(func() {
-			v.selectGoroutine = func(goroutine *gops.Goroutine) {
+			v.selectGoroutine = func(goroutine *common.CallStack) {
 				if flex.GetItemCount() > 1 {
 					flex.RemoveItem(flex.GetItem(1))
 				}

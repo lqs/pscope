@@ -17,3 +17,21 @@ type Process struct {
 	Agent        bool
 	StartTime    time.Time
 }
+
+type CallStack struct {
+	Id                int
+	Name              string
+	State             string
+	Wait              string
+	Frames            []*Frame
+	ParentGoroutineId int
+	ParentFrame       *Frame
+	Children          []*CallStack
+}
+
+type Frame struct {
+	Package string
+	Func    string
+	Params  string
+	File    string
+}
