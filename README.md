@@ -6,7 +6,7 @@
 
 This project is still under development. Here is a demo of the current progress:
 
-![demo](https://lqs-public-us-west.oss-us-west-1.aliyuncs.com/pscope/demo-teaser.gif)
+![demo](https://lqs-public-us-west.oss-us-west-1.aliyuncs.com/pscope/demo-teaser-2.gif)
 
 ## Installation
 
