@@ -74,7 +74,7 @@ func (g *GoroutineListView) Apply(callStacks []*common.CallStack) {
 	} else {
 		g.SetTitle(" Threads (" + strconv.Itoa(len(g.indexToGoroutine)-1) + ") ")
 	}
-	for g.GetRowCount() > g.currentRow+1 {
+	for g.GetRowCount() >= g.currentRow+1 {
 		g.RemoveRow(g.GetRowCount() - 1)
 	}
 	if row, _ := g.GetSelection(); row <= 0 || row >= g.currentRow+1 {
