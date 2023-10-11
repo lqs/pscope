@@ -41,7 +41,7 @@ func NewProcessDetailView(params ProcessDetailViewParams) ProcessDetailView {
 
 	form.AddTextView("PID", strconv.Itoa(params.Process.PID), 0, 1, true, false)
 	form.AddTextView("Name", name, 0, 1, true, false)
-	form.AddTextView("%CPU (average)", fmt.Sprintf("%.1f%%", cpuPercent*100), 0, 1, true, false)
+	form.AddTextView("%CPU (average)", fmt.Sprintf("%.1f%%", cpuPercent), 0, 1, true, false)
 
 	if params.Process.Agent {
 		form.AddButton("Stack Dump", params.OnShowStack)
@@ -58,7 +58,7 @@ func NewProcessDetailView(params ProcessDetailViewParams) ProcessDetailView {
 	ctx, cancel := context.WithCancel(context.Background())
 	NewReloader(ctx, func() {
 		cpuPercent, _ := p.CPUPercent()
-		form.GetFormItemByLabel("%CPU (average)").(*tview.TextView).SetText(fmt.Sprintf("%.1f%%", cpuPercent*100))
+		form.GetFormItemByLabel("%CPU (average)").(*tview.TextView).SetText(fmt.Sprintf("%.1f%%", cpuPercent))
 
 	})
 
