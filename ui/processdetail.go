@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -53,7 +54,16 @@ func NewProcessDetailView(params ProcessDetailViewParams) ProcessDetailView {
 	}
 	form.SetButtonStyle(buttonStyle)
 	form.SetButtonActivatedStyle(buttonActivatedStyle)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	NewReloader(ctx, func() {
+		cpuPercent, _ := p.CPUPercent()
+		form.GetFormItemByLabel("%CPU (average)").(*tview.TextView).SetText(fmt.Sprintf("%.1f%%", cpuPercent*100))
+
+	})
+
 	form.SetCancelFunc(func() {
+		cancel()
 		params.OnClose()
 	})
 
